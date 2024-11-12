@@ -1,0 +1,91 @@
+# Load necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.stattools import adfuller
+import warnings
+
+# Suppress warnings
+warnings.filterwarnings("ignore")
+
+# Load the data
+gdp_data = pd.read_csv('gdp_data.csv')
+fdi_data = pd.read_csv('fdi_data.csv')
+
+# Transform the data for visualization
+gdp_long = pd.melt(gdp_data, id_vars=['Country'], var_name='Year', value_name='GDP')
+fdi_long = pd.melt(fdi_data, id_vars=['Country'], var_name='Year', value_name='FDI')
+
+# Convert Year to numeric
+gdp_long['Year'] = gdp_long['Year'].astype(int)
+fdi_long['Year'] = fdi_long['Year'].astype(int)
+
+# Merge GDP and FDI data for analysis
+merged_data = pd.merge(gdp_long, fdi_long, on=['Country', 'Year'])
+
+# Visualization 1: GDP Growth Trends by Country
+plt.figure(figsize=(14, 7))
+sns.lineplot(data=gdp_long, x='Year', y='GDP', hue='Country', marker='o')
+plt.title('GDP Trends (2000-2016)')
+plt.xlabel('Year')
+plt.ylabel('GDP (in Billion $)')
+plt.legend(title='Country')
+plt.grid(True)
+plt.show()
+
+# Visualization 2: FDI Trends by Country with Rolling Mean
+plt.figure(figsize=(14, 7))
+sns.lineplot(data=fdi_long, x='Year', y='FDI', hue='Country', marker='o')
+plt.title('FDI Trends (2000-2016)')
+plt.xlabel('Year')
+plt.ylabel('FDI (in Billion $)')
+plt.legend(title='Country')
+plt.grid(True)
+plt.show()
+
+# Visualization 3: Correlation Heatmap for GDP and FDI
+correlation_matrix = merged_data[['GDP', 'FDI']].corr()
+plt.figure(figsize=(8, 6))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', vmin=-1, vmax=1)
+plt.title('Correlation Heatmap between GDP and FDI')
+plt.show()
+
+# Visualization 4: Pairplot for deeper analysis of GDP and FDI
+sns.pairplot(merged_data, hue='Country', vars=['GDP', 'FDI'], palette='husl')
+plt.suptitle('Pairplot Analysis of GDP and FDI', y=1.02)
+plt.show()
+
+# Visualization 5: Boxplot to compare GDP distributions by Country
+plt.figure(figsize=(12, 6))
+sns.boxplot(data=gdp_long, x='Country', y='GDP')
+plt.title('Distribution of GDP by Country (2000-2016)')
+plt.xlabel('Country')
+plt.ylabel('GDP (in Billion $)')
+plt.grid(True)
+plt.show()
+
+# Forecasting GDP for India using time series analysis
+india_gdp = gdp_long[gdp_long['Country'] == 'India']
+india_gdp_ts = india_gdp.set_index('Year')['GDP']
+
+# Fit an ARIMA model
+gdp_model = ARIMA(india_gdp_ts, order=(1, 1, 1)).fit()
+
+gdp_forecast = gdp_model.get_forecast(steps=5)
+gdp_forecast_df = gdp_forecast.conf_int()
+gdp_forecast_df['Forecast'] = gdp_forecast.predicted_mean
+
+# Plot forecast
+gdp_forecast_df['Forecast'].plot(label='Forecast', color='blue')
+plt.fill_between(gdp_forecast_df.index, gdp_forecast_df.iloc[:, 0], gdp_forecast_df.iloc[:, 1], color='lightblue', alpha=0.5)
+plt.title('GDP Forecast for India (Next 5 Years)')
+plt.xlabel('Year')
+plt.ylabel('GDP (in Billion $)')
+plt.legend(['Forecast', 'Confidence Interval'])
+plt.grid(True)
+plt.show()
+
+# Print model summary
+print(gdp_model.summary())
